@@ -220,6 +220,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\BezierCurve.cs" />
     <Compile Include="Assets\Scripts\HermiteCurve.cs" />
     <Compile Include="Assets\Scripts\WalkOnTheCurve.cs" />
   </ItemGroup>

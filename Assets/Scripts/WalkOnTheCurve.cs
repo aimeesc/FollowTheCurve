@@ -6,21 +6,42 @@ public class WalkOnTheCurve : MonoBehaviour {
 
     public class Point
     {
-        Vector3 T, B, N, acc, coordinate, nextPoint, v0, v1;
-        float curveLenght, intervalLenght, step, interval;
-        int numberOfPoints;
+        public Vector3 T, B, N, acc, coordinate, nextPoint, v0, v1;
+        public float curveLenght, intervalLenght, step;
+        public int numberOfPoints;
         WalkOnTheCurve curve;
 
+        //constructor for the startPoint
+        public Point(Vector3 coordinate, float curveLenght, int numberOfPoints, float step, WalkOnTheCurve curve)
+        {
+
+            Debug.Log("Start point constructor");
+
+            this.curve = curve;
+            this.coordinate = coordinate; //coordinate of the point
+            this.curveLenght = curveLenght; //total length of the curve
+            this.numberOfPoints = numberOfPoints;
+            intervalLenght = curveLenght / numberOfPoints; //size of the interval between the points (key frames) on the curve
+
+            findNextPoint();
+            calculateVelocity();
+        }
 
         //constructor
-        Point(Vector3 coordinate, Vector3 v0, float curveLenght,  int numberOfPoints, float interval, float step)
+        public Point(Vector3 coordinate, Vector3 v0, float curveLenght, int numberOfPoints, float step, WalkOnTheCurve curve)
         {
+            Debug.Log("Computing point after the start point");
+            this.curve = curve;
             this.coordinate = coordinate; //coordinate of the point
-            this.curveLenght = curveLenght; //total length
+            this.curveLenght = curveLenght; //total length of the curve
             this.numberOfPoints = numberOfPoints;
-            this.interval = interval; //size of the interval
-            this.step = step; //which t is equivalent to this coordinate
+            intervalLenght = curveLenght/numberOfPoints; //size of the interval between the points (key frames) on the curve
+            this.step = step; //which t is equivalent to this coordinate (index of the point)
+            Debug.Log("Point constructor");
+            //Debug.Log(curve.numberOfPoints);
+            
             //find the next point
+            findNextPoint();
             //calculate the v1 vector
             calculateVelocity();
             //calculate acceleration
@@ -31,23 +52,39 @@ public class WalkOnTheCurve : MonoBehaviour {
             calculateB();
             //calculate N vector
             calculateN();
+          
         }
         public void findNextPoint()
-        {
-            // set points of Hermite curve
-            Vector3 position = coordinate;
-            float length = 0;
-   
-            this.nextPoint = this.coordinate;
-   
-            //calculate points untill finding the next one with lenght equal or greater than the interval defined
-            while(length < interval)
-            {
-                position = curve.generatePoints(step);
-                length = Vector3.Magnitude(position - coordinate);
-            }
-            this.nextPoint = position;
+        {           
+            float miniStep = intervalLenght / 10; //used to segment the interval (could be calculated differently based on the T vector to optimaze the code)
+            float i = step/(numberOfPoints-1);
 
+            //Check if this is the last step (the next point will be the end point)
+
+            //TODO finish this
+            if (step == numberOfPoints - 2)
+            {
+                nextPoint = curve.endPoint.transform.position;
+                calculateAcc();
+            }
+            else { 
+                Vector3 position = coordinate;
+                float length = 0;
+   
+                this.nextPoint = this.coordinate;
+   
+                //calculate points untill finding the next one with lenght equal or greater than the interval defined
+                while(length < intervalLenght && position != this.curve.endPoint.transform.position) //TODO: maybe there should be a condition checking if the curve has ended
+                {
+                    i = i + miniStep; //step forward on the curve interval
+                    position = curve.generatePoints(i); //generate the point for the mini step
+                    length = Vector3.Magnitude(position - coordinate); //calculate the length to the point generated
+                    
+                }
+                this.nextPoint = position;
+
+                //TODO Treat case when the next point wasn't found
+            }
         }
 
         public void calculateVelocity()
@@ -76,33 +113,53 @@ public class WalkOnTheCurve : MonoBehaviour {
         }
 
 };
+
+
     // Use this for initialization
     public GameObject curve;
     public GameObject startPoint, startTangentPoint, endPoint, endTangentPoint;
-    public float deltaX, deltaY, deltaZ;
+    public float curveLength, intervalLength;
     public int numberOfPoints, countPosition;
     Vector3 newPosition;
-    Point []listOfPoints;
-
+    public Point []listOfPoints;
+    public Point test;
 
 
     Quaternion rotation;// Quaternion.Euler(eulerAngles.x, eulerAngles.y, eulerAngles.z);
     Vector3 currentPoint, previousPoint, nextPoint, v0, v1, acceleration, B, N, T;
     void Start () {
-        
-        countPosition = 2; //As the sphere starts at the first position, the count position is set to 2 to control how far the nextPoint variable will be calculated
-        numberOfPoints = 50;
+        numberOfPoints = 10;
 
-                    /* Initialize the points for the first step */
+        test = new Point(startPoint.transform.position, new Vector3(0, 1, 0), curveLength, numberOfPoints, 0, this);
+        //Point(Vector3 coordinate, Vector3 v0, float curveLenght,  int numberOfPoints, float step)
+        //Calculate the curve length
+        calculateCurveLenght();
+        //Set the interval size
+        intervalLength = curveLength / numberOfPoints;
+
+        //Create a list with all the points that are in this interval
+        generatePointsList();
+
+        //Apply the Frenet Serret algorithm to transform all the points along the line (Update)
+
+
+
+
+
+
+        /*********** BEFORE THE POINT CLASS *****
+        countPosition = 2; //As the sphere starts at the first position, the count position is set to 2 to control how far the nextPoint variable will be calculated
+
+                    /* Initialize the points for the first step 
         previousPoint = startPoint.transform.position; //set the previous point as the first point of the curve
         currentPoint = generatePoints(1 / (numberOfPoints - 1.0f)); //calculate the position of the first point as the start point + one step
         transform.position = currentPoint; //set the object at the first step of the curve
         nextPoint = generatePoints(2 / (numberOfPoints - 1.0f)); //calculate the next point (step) 
         v0 = derivate(previousPoint, currentPoint); //Tangent vector for the first point (step)
-
+        */
     }
 
-   
+
     void Update ()
     {
 
@@ -121,7 +178,7 @@ public class WalkOnTheCurve : MonoBehaviour {
             countPosition++;
         }
     }
-
+    
 
     void FrenetSerret()
     { 
@@ -176,13 +233,56 @@ public class WalkOnTheCurve : MonoBehaviour {
         return velocity;
     }
 
-    public float curveSize()
+    public void calculateCurveLenght()
     {
+        this.curveLength = 0;
+        int totalPoints = 200; //Precision
+        Vector3 currentPoint, previousPoint;
+        previousPoint = startPoint.transform.position;
+
+        for (int i = 0; i < totalPoints; i++)
+        {
+            currentPoint = generatePoints(i / (totalPoints - 1.0f));
+
+            if (i > 0)
+            {
+                curveLength = curveLength + Vector3.Magnitude(currentPoint - previousPoint);
 
 
-        return 0;
+            }
+            previousPoint = currentPoint;
+
+        }
+
+
 
     }
 
-    
+    public void generatePointsList()
+    {
+        Debug.Log("Generating points...");
+
+        this.listOfPoints = new Point[numberOfPoints-1];
+        //generate points from the start to the end
+        for(int i = 0;  i<(this.numberOfPoints-1); i++)
+        {
+            if(i == 0) //start point
+            {
+                //called a different constructur here because there is no way to calculate the v0 vector as this is the first vector
+                this.listOfPoints[i] = new Point(startPoint.transform.position, curveLength, numberOfPoints, i, this);
+
+            }
+            else //all other points
+            {
+                Debug.Log(listOfPoints[i - 1]);
+                this. listOfPoints[i] = new Point(listOfPoints[i - 1].nextPoint, listOfPoints[i - 1].v1, curveLength, numberOfPoints, i, this);
+
+            }
+
+        }
+
+
+    }
+
+
 }
