@@ -7,17 +7,28 @@ public class HermiteCurve : MonoBehaviour
 
     public Color color = Color.white;
     public float width = 0.1f;
-    public int numberOfPoints = 30;
+    public int numberOfPoints = 50;
     LineRenderer lineRenderer;
+    float totalArcLenght;
+    Vector3 previousPoint;
 
     void Start()
     {
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.useWorldSpace = true;
         lineRenderer.material = new Material(Shader.Find("Particles/Additive"));
+        totalArcLenght = 0;
+        //curveLenght = Vector3.zero;
+        DrawHermiteCurve();
+
     }
 
     void Update()
+    {
+
+    }
+
+    void DrawHermiteCurve()
     {
         // check parameters and components
         if (null == lineRenderer || null == start || null == startTangentPoint
@@ -51,7 +62,23 @@ public class HermiteCurve : MonoBehaviour
             + (t * t * t - 2.0f * t * t + t) * m0
             + (-2.0f * t * t * t + 3.0f * t * t) * p1
             + (t * t * t - t * t) * m1;
+            //    Debug.Log(position);
             lineRenderer.SetPosition(i, position);
+
+            if (i > 0)
+            {
+                totalArcLenght = totalArcLenght + Vector3.Magnitude(position - previousPoint);
+                
+
+            }
+            previousPoint = position;
+            
         }
+
+        Debug.Log(totalArcLenght);
     }
+    
+
+        
 }
+
